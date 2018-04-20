@@ -4,6 +4,22 @@ defmodule Liquid.Parse do
   alias Liquid.Registers
   alias Liquid.Block
 
+  def parse("", %Template{} = template) do
+    %{template | root: %Liquid.Block{name: :document}}
+  end
+
+    def parse(<<string::binary>>, %Template{} = template) do
+    me = self()
+    pid = spawn_link fn -> (send me, { self(), parser(string, template) }) end
+    receive do { ^pid, result } -> result end
+  end
+
+  def parse(%Block{} = block, tokens , accum, %Template{} = template) do
+    me = self()
+    pid = spawn_link fn -> (send me, { self(), parser(block, tokens, accum, template) }) end
+    receive do { ^pid, result } -> result end
+  end
+
   def tokenize(<<string::binary>>) do
     Liquid.template_parser()
     |> Regex.split(string, on: :all_but_first, trim: true)
@@ -11,11 +27,7 @@ defmodule Liquid.Parse do
     |> Enum.filter(&(&1 != ""))
   end
 
-  def parse("", %Template{} = template) do
-    %{template | root: %Liquid.Block{name: :document}}
-  end
-
-  def parse(<<string::binary>>, %Template{} = template) do
+  def parser(<<string::binary>>, %Template{} = template) do
     tokens = string |> tokenize
     name = tokens |> hd
     tag_name = parse_tag_name(name)
@@ -24,11 +36,11 @@ defmodule Liquid.Parse do
     %{template | root: root}
   end
 
-  def parse(%Block{name: :document} = block, [], accum, %Template{} = template) do
+  def parser(%Block{name: :document} = block, [], accum, %Template{} = template) do
     unless nodelist_invalid?(block, accum), do: {%{block | nodelist: accum}, template}
   end
 
-  def parse(%Block{name: :comment} = block, [h | t], accum, %Template{} = template) do
+  def parser(%Block{name: :comment} = block, [h | t], accum, %Template{} = template) do
     cond do
       Regex.match?(~r/{%\s*endcomment\s*%}/, h) ->
         {%{block | nodelist: accum}, t, template}
@@ -50,11 +62,11 @@ defmodule Liquid.Parse do
     end
   end
 
-  def parse(%Block{name: name}, [], _, _) do
+  def parser(%Block{name: name}, [], _, _) do
     raise "No matching end for block {% #{to_string(name)} %}"
   end
 
-  def parse(%Block{name: name} = block, [h | t], accum, %Template{} = template) do
+  def parser(%Block{name: name} = block, [h | t], accum, %Template{} = template) do
     endblock = "end" <> to_string(name)
 
     cond do
