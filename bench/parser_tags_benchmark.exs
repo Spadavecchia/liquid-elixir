@@ -17,27 +17,27 @@ raw = "{% raw %} {% if true %} {% endraw %}"
 tablerow = "{% tablerow item in array %}{% endtablerow %}"
 
 templates = [
-  assign,
-  capture,
-  case_tag,
-  comment,
-  cycle,
-  decrement,
-  for_tag,
-  if_tag,
-  include,
-  increment,
-  raw,
-  tablerow
+  assign: assign,
+  capture: capture,
+  case: case_tag,
+  comment: comment,
+  cycle: cycle,
+  decrement: decrement,
+  for: for_tag,
+  if: if_tag,
+  include: include,
+  increment: increment,
+  raw: raw,
+  tablerow: tablerow
 ]
 
-for template <- templates do
-  Benchee.run(
-    %{
-      nimble: fn -> Liquid.NimbleParser.parse(template) end,
-      valim: fn -> Liquid.ValimParser.parse(template) end
-    },
-    warmup: 5,
-    time: 20
-  )
-end
+Enum.each(templates, fn {name, markup} ->
+    Benchee.run(
+      %{
+        "#{name}-nimble" => fn -> Liquid.NimbleParser.parse(markup) end
+      },
+      warmup: 5,
+      time: 20
+    )
+  end
+)
