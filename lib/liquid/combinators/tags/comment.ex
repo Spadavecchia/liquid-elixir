@@ -31,7 +31,7 @@ defmodule Liquid.Combinators.Tags.Comment do
     |> optional(
       choice([
         parsec(:comment) |> optional(parsec(:comment_content)),
-        parsec(:raw) |> optional(parsec(:comment_content)),
+        Liquid.Combinators.Tags.Raw.tag() |> optional(parsec(:comment_content)),
         any_tag() |> optional(parsec(:comment_content))
       ])
     )
@@ -47,7 +47,7 @@ defmodule Liquid.Combinators.Tags.Comment do
   def tag do
     Tag.define_closed("comment", & &1, fn combinator ->
       combinator
-      |> optional(parsec(:comment_content))
+      |> optional(comment_content())
       |> reduce({Markup, :literal, []})
     end)
   end
